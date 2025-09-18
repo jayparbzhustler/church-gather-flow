@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { Search, ArrowLeft, Plus } from "lucide-react";
+import { Search, ArrowLeft, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { churchDB, Group, Subgroup } from "@/lib/db";
+import { churchDB, Group, Subgroup, Member } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 
 interface SubgroupSelectionProps {
@@ -19,22 +19,31 @@ export default function SubgroupSelection({
   onBack 
 }: SubgroupSelectionProps) {
   const [subgroups, setSubgroups] = useState<Subgroup[]>([]);
+  const [allMembers, setAllMembers] = useState<Member[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [showMemberResults, setShowMemberResults] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    loadSubgroups();
+    loadData();
   }, [selectedGroup]);
 
-  const loadSubgroups = async () => {
+  const loadData = async () => {
     try {
-      const groupSubgroups = await churchDB.getSubgroupsByGroup(selectedGroup.id);
-      setSubgroups(groupSubgroups);
+      const [groupSubgroups, allMembers] = await Promise.all([
+        churchDB.getSubgroupsByGroup(selectedGroup.id),
+        churchDB.getAllMembers()
+      ]);
+      
+      // Sort subgroups by name
+      const sortedSubgroups = groupSubgroups.sort((a, b) => a.name.localeCompare(b.name));
+      setSubgroups(sortedSubgroups);
+      setAllMembers(allMembers);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to load subgroups",
+        description: "Failed to load data",
         variant: "destructive",
       });
     } finally {
@@ -46,28 +55,17 @@ export default function SubgroupSelection({
     subgroup.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const addNewSubgroup = async () => {
-    const subgroupName = prompt('Enter new subgroup name:');
-    if (subgroupName && subgroupName.trim()) {
-      try {
-        const newSubgroup = await churchDB.addSubgroup({ 
-          name: subgroupName.trim(),
-          groupId: selectedGroup.id
-        });
-        setSubgroups([...subgroups, newSubgroup]);
-        toast({
-          title: "Success",
-          description: `Subgroup "${subgroupName}" added successfully`,
-        });
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to add subgroup",
-          variant: "destructive",
-        });
-      }
-    }
-  };
+  // Filter members by search term and selected gender
+  const filteredMembers = allMembers.filter(member =>
+    member.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+    member.gender === selectedGender &&
+    member.groupId === selectedGroup.id
+  );
+
+  const hasSearchResults = searchTerm.length > 0;
+  const hasMemberResults = filteredMembers.length > 0;
+  const hasSubgroupResults = filteredSubgroups.length > 0;
+
 
   if (loading) {
     return (
@@ -109,26 +107,44 @@ export default function SubgroupSelection({
             </p>
           </div>
 
-          <Button
-            variant="admin"
-            size="lg"
-            onClick={addNewSubgroup}
-          >
-            <Plus size={24} />
-            Add Subgroup
-          </Button>
         </div>
 
         {/* Search */}
         <div className="relative mb-8">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={20} />
           <Input
-            placeholder="Search subgroups..."
+            placeholder="Search subgroups or members..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setShowMemberResults(e.target.value.length > 0);
+            }}
             className="pl-10 h-14 text-lg"
           />
         </div>
+
+        {/* Search Results */}
+        {showMemberResults && hasMemberResults && (
+          <div className="mb-8">
+            <h3 className="text-xl font-semibold text-foreground mb-4 flex items-center">
+              <Users className="mr-2" size={20} />
+              Member Results ({filteredMembers.length})
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredMembers.map((member) => (
+                <div key={member.id} className="border rounded-lg p-4 bg-card">
+                  <h4 className="font-semibold text-lg mb-2">{member.name}</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Subgroup: {subgroups.find(s => s.id === member.subgroupId)?.name || 'Unknown'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Click subgroup to navigate
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Subgroups Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -145,15 +161,19 @@ export default function SubgroupSelection({
           ))}
         </div>
 
-        {filteredSubgroups.length === 0 && (
+        {!hasSearchResults && filteredSubgroups.length === 0 && (
           <div className="text-center py-12">
             <p className="text-xl text-muted-foreground mb-4">
-              {searchTerm ? 'No subgroups found matching your search' : 'No subgroups available'}
+              No subgroups available
             </p>
-            <Button variant="admin" onClick={addNewSubgroup}>
-              <Plus size={20} />
-              Add First Subgroup
-            </Button>
+          </div>
+        )}
+
+        {hasSearchResults && !hasSubgroupResults && !hasMemberResults && (
+          <div className="text-center py-12">
+            <p className="text-xl text-muted-foreground mb-4">
+              No subgroups or members found matching your search
+            </p>
           </div>
         )}
       </div>

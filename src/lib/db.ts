@@ -157,6 +157,17 @@ class ChurchDB {
     });
   }
 
+  async getAllMembers(): Promise<Member[]> {
+    const transaction = this.db!.transaction(['members'], 'readonly');
+    const store = transaction.objectStore('members');
+    const request = store.getAll();
+    
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
   // Attendance
   async markAttendance(memberId: string): Promise<AttendanceRecord> {
     // Get member details

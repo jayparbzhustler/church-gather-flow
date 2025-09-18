@@ -1,21 +1,24 @@
 import { useState, useEffect } from "react";
 import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { churchDB, Group, Subgroup, AttendanceRecord } from "@/lib/db";
+import { churchDB, Group, Subgroup, Member, AttendanceRecord } from "@/lib/db";
 import WelcomeScreen from "@/components/WelcomeScreen";
 import GroupSelection from "@/components/GroupSelection";
 import SubgroupSelection from "@/components/SubgroupSelection";
 import MemberList from "@/components/MemberList";
 import AdminDashboard from "@/components/AdminDashboard";
+import CheckInConfirmation from "@/components/CheckInConfirmation";
 import { useToast } from "@/hooks/use-toast";
 
-type Screen = 'welcome' | 'groups' | 'subgroups' | 'members' | 'admin';
+type Screen = 'welcome' | 'groups' | 'subgroups' | 'members' | 'confirmation' | 'admin';
 
 const Index = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [selectedGender, setSelectedGender] = useState<'Male' | 'Female' | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [selectedSubgroup, setSelectedSubgroup] = useState<Subgroup | null>(null);
+  const [checkedInMember, setCheckedInMember] = useState<Member | null>(null);
+  const [lastAttendance, setLastAttendance] = useState<AttendanceRecord | null>(null);
   const [dbInitialized, setDbInitialized] = useState(false);
   const { toast } = useToast();
 
@@ -26,7 +29,12 @@ const Index = () => {
   const initializeDatabase = async () => {
     try {
       await churchDB.init();
-      await churchDB.initializeDefaultData();
+      // Check if default data has been initialized using local storage flag
+      const isInitialized = localStorage.getItem('churchDBInitialized');
+      if (!isInitialized) {
+        await churchDB.initializeDefaultData();
+        localStorage.setItem('churchDBInitialized', 'true');
+      }
       setDbInitialized(true);
     } catch (error) {
       console.error('Failed to initialize database:', error);
@@ -53,11 +61,16 @@ const Index = () => {
     setCurrentScreen('members');
   };
 
-  const handleCheckInComplete = (attendance: AttendanceRecord) => {
-    // Reset to welcome screen after successful check-in
-    setTimeout(() => {
-      resetToWelcome();
-    }, 2000);
+  const handleCheckInComplete = (member: Member, attendance: AttendanceRecord) => {
+    setCheckedInMember(member);
+    setLastAttendance(attendance);
+    setCurrentScreen('confirmation');
+  };
+
+  const handleCheckInAnother = () => {
+    setCurrentScreen('members');
+    setCheckedInMember(null);
+    setLastAttendance(null);
   };
 
   const resetToWelcome = () => {
@@ -65,6 +78,8 @@ const Index = () => {
     setSelectedGender(null);
     setSelectedGroup(null);
     setSelectedSubgroup(null);
+    setCheckedInMember(null);
+    setLastAttendance(null);
   };
 
   const goBackOneStep = () => {
@@ -80,6 +95,9 @@ const Index = () => {
       case 'members':
         setCurrentScreen('subgroups');
         setSelectedSubgroup(null);
+        break;
+      case 'confirmation':
+        setCurrentScreen('members');
         break;
       case 'admin':
         setCurrentScreen('welcome');
@@ -145,6 +163,16 @@ const Index = () => {
           selectedSubgroup={selectedSubgroup}
           onBack={goBackOneStep}
           onCheckInComplete={handleCheckInComplete}
+        />
+      )}
+
+      {currentScreen === 'confirmation' && checkedInMember && lastAttendance && selectedSubgroup && (
+        <CheckInConfirmation
+          member={checkedInMember}
+          attendance={lastAttendance}
+          subgroup={selectedSubgroup}
+          onCheckInAnother={handleCheckInAnother}
+          onBackToHome={resetToWelcome}
         />
       )}
 

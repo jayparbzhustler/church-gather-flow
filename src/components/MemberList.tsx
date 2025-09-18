@@ -10,7 +10,7 @@ interface MemberListProps {
   selectedGroup: Group;
   selectedSubgroup: Subgroup;
   onBack: () => void;
-  onCheckInComplete: (attendance: AttendanceRecord) => void;
+  onCheckInComplete: (member: Member, attendance: AttendanceRecord) => void;
 }
 
 export default function MemberList({ 
@@ -21,6 +21,8 @@ export default function MemberList({
   onCheckInComplete
 }: MemberListProps) {
   const [members, setMembers] = useState<Member[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [subgroups, setSubgroups] = useState<Subgroup[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
@@ -28,7 +30,7 @@ export default function MemberList({
 
   useEffect(() => {
     loadMembers();
-  }, [selectedSubgroup]);
+  }, [selectedSubgroup, selectedGender]);
 
   const loadMembers = async () => {
     try {
@@ -51,48 +53,12 @@ export default function MemberList({
     member.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const addNewMember = async () => {
-    const memberName = prompt('Enter new member name:');
-    if (memberName && memberName.trim()) {
-      try {
-        const newMember = await churchDB.addMember({ 
-          name: memberName.trim(),
-          gender: selectedGender,
-          groupId: selectedGroup.id,
-          subgroupId: selectedSubgroup.id
-        });
-        setMembers([...members, newMember]);
-        toast({
-          title: "Success",
-          description: `Member "${memberName}" added successfully`,
-        });
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to add member",
-          variant: "destructive",
-        });
-      }
-    }
-  };
 
   const handleCheckIn = async (member: Member) => {
     setCheckingIn(member.id);
     try {
       const attendance = await churchDB.markAttendance(member.id);
-      onCheckInComplete(attendance);
-      
-      toast({
-        title: "✅ Checked In!",
-        description: `${member.name} has been checked in successfully`,
-        variant: "default",
-      });
-
-      // Auto-redirect back to welcome after 2 seconds
-      setTimeout(() => {
-        onBack();
-      }, 2000);
-      
+      onCheckInComplete(member, attendance);
     } catch (error) {
       toast({
         title: "Error",
@@ -148,14 +114,6 @@ export default function MemberList({
             </p>
           </div>
 
-          <Button
-            variant="admin"
-            size="lg"
-            onClick={addNewMember}
-          >
-            <Plus size={24} />
-            Add Member
-          </Button>
         </div>
 
         {/* Search */}
@@ -197,10 +155,6 @@ export default function MemberList({
             <p className="text-xl text-muted-foreground mb-4">
               {searchTerm ? 'No members found matching your search' : 'No members available'}
             </p>
-            <Button variant="admin" onClick={addNewMember}>
-              <Plus size={20} />
-              Add First Member
-            </Button>
           </div>
         )}
       </div>
