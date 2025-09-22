@@ -1,12 +1,11 @@
-const { GoogleSpreadsheet } = require('google-spreadsheet');
+import { GoogleSpreadsheet } from 'google-spreadsheet';
 
-module.exports = async (event, context) => {
+export default async (event, context) => {
   console.log('get-groups invoked');
-  console.log('google-spreadsheet version:', require('google-spreadsheet/package.json').version);
   try {
     const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
 
-    await doc.useServiceAccountAuth(JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON));
+    await doc.useServiceAccountCredentials(JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON));
 
     await doc.loadInfo();
     const sheet = doc.sheetsByTitle['Groups'];
