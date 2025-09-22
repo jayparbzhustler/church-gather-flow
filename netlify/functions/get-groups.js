@@ -18,21 +18,19 @@ module.exports = async (event, context) => {
       createdAt: new Date(row.get('createdAt')),
     }));
 
-    return {
-      statusCode: 200,
+    return new Response(JSON.stringify({ groups }), {
+      status: 200,
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ groups }),
-    };
+    });
   } catch (error) {
     console.error('Error in get-groups:', error);
-    return {
-      statusCode: 500,
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ error: error.message }),
-    };
+    });
   }
 };
