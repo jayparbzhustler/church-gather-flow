@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { Download, Users, Calendar, ArrowLeft, BarChart3, Plus, UserPlus } from "lucide-react";
+import { Download, Users, Calendar, ArrowLeft, BarChart3, Plus, UserPlus, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { AttendanceRecord, Group, Subgroup, Member } from "@/lib/db";
+import { churchDB, AttendanceRecord, Group, Subgroup, Member } from "@/lib/db";
 import { exportAttendanceToCSV, generateAttendanceReport } from "@/lib/csv-export";
 import { useToast } from "@/hooks/use-toast";
 
@@ -130,7 +130,7 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     }
 
     try {
-      const newGroup = await churchDB.addGroup({ name: newGroupName.trim() });
+      const newGroup = await churchDB.addGroup({ name: newGroupName.trim(), createdAt: new Date() });
       setGroups([...groups, newGroup]);
       setNewGroupName('');
       toast({
@@ -146,6 +146,22 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     }
   };
 
+  const deleteGroup = async (groupId: string) => {
+    try {
+      await churchDB.deleteGroup(groupId);
+      setGroups(groups.filter(group => group.id !== groupId));
+      toast({
+        title: "Success",
+        description: "Group deleted successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete group",
+        variant: "destructive",
+      });
+    }
+  };
   const addNewSubgroup = async () => {
     if (!newSubgroupName.trim() || !selectedGroupForSubgroup) {
       toast({
@@ -159,7 +175,8 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     try {
       const newSubgroup = await churchDB.addSubgroup({
         name: newSubgroupName.trim(),
-        groupId: selectedGroupForSubgroup
+        groupId: selectedGroupForSubgroup,
+        createdAt: new Date()
       });
       setSubgroups([...subgroups, newSubgroup]);
       setNewSubgroupName('');
@@ -191,7 +208,8 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
         name: newMemberName.trim(),
         gender: selectedGenderForMember,
         groupId: selectedGroupForMember,
-        subgroupId: selectedSubgroupForMember
+        subgroupId: selectedSubgroupForMember,
+        createdAt: new Date()
       });
       setMembers([...members, newMember]);
       setNewMemberName('');
@@ -211,7 +229,7 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
   const handleGroupChangeForSubgroup = async (groupId: string) => {
     setSelectedGroupForSubgroup(groupId);
     try {
-      const subgroupsData = await churchDB.getSubgroupsByGroup(groupId);
+      const subgroupsData = await churchDB.getSubgroups(groupId);
       // Sort subgroups by name
       const sortedSubgroups = subgroupsData.sort((a, b) => a.name.localeCompare(b.name));
       setSubgroups(sortedSubgroups);
@@ -228,7 +246,7 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     setSelectedGroupForMember(groupId);
     setSelectedSubgroupForMember('');
     try {
-      const subgroupsData = await churchDB.getSubgroupsByGroup(groupId);
+      const subgroupsData = await churchDB.getSubgroups(groupId);
       // Sort subgroups by name
       const sortedSubgroups = subgroupsData.sort((a, b) => a.name.localeCompare(b.name));
       setSubgroups(sortedSubgroups);
@@ -244,7 +262,7 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
   const handleSubgroupChangeForMember = async (subgroupId: string) => {
     setSelectedSubgroupForMember(subgroupId);
     try {
-      const membersData = await churchDB.getMembersBySubgroup(subgroupId);
+      const membersData = await churchDB.getMembers(subgroupId);
       // Sort members by name
       const sortedMembers = membersData.sort((a, b) => a.name.localeCompare(b.name));
       setMembers(sortedMembers);
@@ -483,11 +501,19 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
                     {groups.map((group) => (
-                      <div key={group.id} className="border rounded-lg p-4">
+                      <div key={group.id} className="border rounded-lg p-4 relative">
                         <h4 className="font-semibold">{group.name}</h4>
                         <p className="text-sm text-muted-foreground">
                           Created: {new Date(group.createdAt).toLocaleDateString()}
                         </p>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                          onClick={() => deleteGroup(group.id)}
+                        >
+                          <Trash size={14} />
+                        </Button>
                       </div>
                     ))}
                   </div>

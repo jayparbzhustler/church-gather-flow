@@ -185,6 +185,22 @@ class ChurchDB {
       return [];
     }
   }
+
+  async deleteGroup(groupId: string): Promise<void> {
+    try {
+      const response = await fetch(`${this.baseUrl}/delete-group`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ groupId }),
+      });
+      if (!response.ok) throw new Error('Failed to delete group');
+    } catch (error) {
+      console.error('Error deleting group:', error);
+      throw error;
+    }
+  }
 }
 
 export const churchDB = new ChurchDB();
