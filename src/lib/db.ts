@@ -1,14 +1,4 @@
-// IndexedDB wrapper for offline church attendance storage
-
-export interface Member {
-  id: string;
-  name: string;
-  gender: 'Male' | 'Female';
-  groupId: string;
-  subgroupId: string;
-  createdAt: Date;
-}
-
+// Simple Google Sheets database client using Netlify functions
 export interface Group {
   id: string;
   name: string;
@@ -19,6 +9,15 @@ export interface Subgroup {
   id: string;
   name: string;
   groupId: string;
+  createdAt: Date;
+}
+
+export interface Member {
+  id: string;
+  name: string;
+  gender: 'Male' | 'Female';
+  groupId: string;
+  subgroupId: string;
   createdAt: Date;
 }
 
@@ -35,240 +34,155 @@ export interface AttendanceRecord {
 }
 
 class ChurchDB {
-  private db: IDBDatabase | null = null;
-  private dbName = 'ChurchAttendanceDB';
-  private version = 1;
+  private baseUrl = '/.netlify/functions';
 
-  async init(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, this.version);
-
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        this.db = request.result;
-        resolve();
-      };
-
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-
-        // Create object stores
-        if (!db.objectStoreNames.contains('groups')) {
-          const groupStore = db.createObjectStore('groups', { keyPath: 'id' });
-          groupStore.createIndex('name', 'name', { unique: false });
-        }
-
-        if (!db.objectStoreNames.contains('subgroups')) {
-          const subgroupStore = db.createObjectStore('subgroups', { keyPath: 'id' });
-          subgroupStore.createIndex('groupId', 'groupId', { unique: false });
-        }
-
-        if (!db.objectStoreNames.contains('members')) {
-          const memberStore = db.createObjectStore('members', { keyPath: 'id' });
-          memberStore.createIndex('groupId', 'groupId', { unique: false });
-          memberStore.createIndex('subgroupId', 'subgroupId', { unique: false });
-          memberStore.createIndex('name', 'name', { unique: false });
-        }
-
-        if (!db.objectStoreNames.contains('attendance')) {
-          const attendanceStore = db.createObjectStore('attendance', { keyPath: 'id' });
-          attendanceStore.createIndex('memberId', 'memberId', { unique: false });
-          attendanceStore.createIndex('serviceDate', 'serviceDate', { unique: false });
-          attendanceStore.createIndex('checkInTime', 'checkInTime', { unique: false });
-        }
-      };
-    });
-  }
-
-  // Groups
-  async addGroup(group: Omit<Group, 'id' | 'createdAt'>): Promise<Group> {
-    const newGroup: Group = {
-      ...group,
-      id: crypto.randomUUID(),
-      createdAt: new Date(),
-    };
-
-    const transaction = this.db!.transaction(['groups'], 'readwrite');
-    const store = transaction.objectStore('groups');
-    await store.add(newGroup);
-    return newGroup;
+  async getMembersBySubgroup(subgroupId: string): Promise<Member[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/get-members?subgroupId=${subgroupId}`);
+      if (!response.ok) throw new Error('Failed to fetch members');
+      const data = await response.json();
+      return data.members || [];
+    } catch (error) {
+      console.error('Error fetching members:', error);
+      return [];
+    }
   }
 
   async getGroups(): Promise<Group[]> {
-    const transaction = this.db!.transaction(['groups'], 'readonly');
-    const store = transaction.objectStore('groups');
-    const request = store.getAll();
-    
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+    try {
+      const response = await fetch(`${this.baseUrl}/get-groups`);
+      if (!response.ok) throw new Error('Failed to fetch groups');
+      const data = await response.json();
+      return data.groups || [];
+    } catch (error) {
+      console.error('Error fetching groups:', error);
+      return [];
+    }
   }
 
-  // Subgroups
-  async addSubgroup(subgroup: Omit<Subgroup, 'id' | 'createdAt'>): Promise<Subgroup> {
-    const newSubgroup: Subgroup = {
-      ...subgroup,
-      id: crypto.randomUUID(),
-      createdAt: new Date(),
-    };
-
-    const transaction = this.db!.transaction(['subgroups'], 'readwrite');
-    const store = transaction.objectStore('subgroups');
-    await store.add(newSubgroup);
-    return newSubgroup;
+  async addGroup(group: Omit<Group, 'id'>): Promise<Group> {
+    try {
+      const response = await fetch(`${this.baseUrl}/add-group`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(group),
+      });
+      if (!response.ok) throw new Error('Failed to add group');
+      const data = await response.json();
+      return data.group;
+    } catch (error) {
+      console.error('Error adding group:', error);
+      throw error;
+    }
   }
 
-  async getSubgroupsByGroup(groupId: string): Promise<Subgroup[]> {
-    const transaction = this.db!.transaction(['subgroups'], 'readonly');
-    const store = transaction.objectStore('subgroups');
-    const index = store.index('groupId');
-    const request = index.getAll(groupId);
-    
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+  async getSubgroups(groupId?: string): Promise<Subgroup[]> {
+    try {
+      const url = groupId 
+        ? `${this.baseUrl}/get-subgroups?groupId=${groupId}`
+        : `${this.baseUrl}/get-subgroups`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch subgroups');
+      const data = await response.json();
+      return data.subgroups || [];
+    } catch (error) {
+      console.error('Error fetching subgroups:', error);
+      return [];
+    }
   }
 
-  // Members
-  async addMember(member: Omit<Member, 'id' | 'createdAt'>): Promise<Member> {
-    const newMember: Member = {
-      ...member,
-      id: crypto.randomUUID(),
-      createdAt: new Date(),
-    };
-
-    const transaction = this.db!.transaction(['members'], 'readwrite');
-    const store = transaction.objectStore('members');
-    await store.add(newMember);
-    return newMember;
+  async addSubgroup(subgroup: Omit<Subgroup, 'id'>): Promise<Subgroup> {
+    try {
+      const response = await fetch(`${this.baseUrl}/add-subgroup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(subgroup),
+      });
+      if (!response.ok) throw new Error('Failed to add subgroup');
+      const data = await response.json();
+      return data.subgroup;
+    } catch (error) {
+      console.error('Error adding subgroup:', error);
+      throw error;
+    }
   }
 
-  async getMembersBySubgroup(subgroupId: string): Promise<Member[]> {
-    const transaction = this.db!.transaction(['members'], 'readonly');
-    const store = transaction.objectStore('members');
-    const index = store.index('subgroupId');
-    const request = index.getAll(subgroupId);
-    
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+  async getMembers(subgroupId?: string): Promise<Member[]> {
+    try {
+      const url = subgroupId 
+        ? `${this.baseUrl}/get-members?subgroupId=${subgroupId}`
+        : `${this.baseUrl}/get-members`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch members');
+      const data = await response.json();
+      return data.members || [];
+    } catch (error) {
+      console.error('Error fetching members:', error);
+      return [];
+    }
   }
 
-  async getAllMembers(): Promise<Member[]> {
-    const transaction = this.db!.transaction(['members'], 'readonly');
-    const store = transaction.objectStore('members');
-    const request = store.getAll();
-    
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+  async addMember(member: Omit<Member, 'id'>): Promise<Member> {
+    try {
+      const response = await fetch(`${this.baseUrl}/add-member`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(member),
+      });
+      if (!response.ok) throw new Error('Failed to add member');
+      const data = await response.json();
+      return data.member;
+    } catch (error) {
+      console.error('Error adding member:', error);
+      throw error;
+    }
   }
 
-  // Attendance
-  async markAttendance(memberId: string): Promise<AttendanceRecord> {
-    // Get member details
-    const transaction = this.db!.transaction(['members', 'groups', 'subgroups', 'attendance'], 'readwrite');
-    const memberStore = transaction.objectStore('members');
-    const member: Member = await new Promise((resolve, reject) => {
-      const request = memberStore.get(memberId);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-
-    // Get group and subgroup names
-    const groupStore = transaction.objectStore('groups');
-    const subgroupStore = transaction.objectStore('subgroups');
-    
-    const group: Group = await new Promise((resolve, reject) => {
-      const request = groupStore.get(member.groupId);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-
-    const subgroup: Subgroup = await new Promise((resolve, reject) => {
-      const request = subgroupStore.get(member.subgroupId);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-
-    const attendance: AttendanceRecord = {
-      id: crypto.randomUUID(),
-      memberId: member.id,
-      memberName: member.name,
-      gender: member.gender,
-      groupName: group.name,
-      subgroupName: subgroup.name,
-      checkInTime: new Date(),
-      serviceDate: new Date().toISOString().split('T')[0],
-      status: 'Present',
-    };
-
-    const attendanceStore = transaction.objectStore('attendance');
-    await attendanceStore.add(attendance);
-    return attendance;
+  async markAttendance(record: Omit<AttendanceRecord, 'id' | 'checkInTime'>): Promise<AttendanceRecord> {
+    try {
+      const response = await fetch(`${this.baseUrl}/mark-attendance`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(record),
+      });
+      if (!response.ok) throw new Error('Failed to mark attendance');
+      const data = await response.json();
+      return data.attendance;
+    } catch (error) {
+      console.error('Error marking attendance:', error);
+      throw error;
+    }
   }
 
   async getTodayAttendance(): Promise<AttendanceRecord[]> {
-    const today = new Date().toISOString().split('T')[0];
-    const transaction = this.db!.transaction(['attendance'], 'readonly');
-    const store = transaction.objectStore('attendance');
-    const index = store.index('serviceDate');
-    const request = index.getAll(today);
-    
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+    try {
+      const response = await fetch(`${this.baseUrl}/get-today-attendance`);
+      if (!response.ok) throw new Error('Failed to fetch today\'s attendance');
+      const data = await response.json();
+      return data.attendance || [];
+    } catch (error) {
+      console.error('Error fetching today\'s attendance:', error);
+      return [];
+    }
   }
 
   async getAllAttendance(): Promise<AttendanceRecord[]> {
-    const transaction = this.db!.transaction(['attendance'], 'readonly');
-    const store = transaction.objectStore('attendance');
-    const request = store.getAll();
-    
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  // Initialize default data
-  async initializeDefaultData(): Promise<void> {
-    const groups = await this.getGroups();
-    if (groups.length === 0) {
-      // Create default groups
-      for (let i = 1; i <= 7; i++) {
-        const group = await this.addGroup({ name: `Group-${i}` });
-        
-        // Create default subgroups for each group
-        await this.addSubgroup({ name: `${i}-1`, groupId: group.id });
-        await this.addSubgroup({ name: `${i}-2`, groupId: group.id });
-      }
-
-      // Add some sample members
-      const allGroups = await this.getGroups();
-      const firstGroup = allGroups[0];
-      const subgroups = await this.getSubgroupsByGroup(firstGroup.id);
-      
-      if (subgroups.length > 0) {
-        await this.addMember({
-          name: 'John Doe',
-          gender: 'Male',
-          groupId: firstGroup.id,
-          subgroupId: subgroups[0].id,
-        });
-        
-        await this.addMember({
-          name: 'Jane Smith',
-          gender: 'Female',
-          groupId: firstGroup.id,
-          subgroupId: subgroups[0].id,
-        });
-      }
+    try {
+      const response = await fetch(`${this.baseUrl}/get-all-attendance`);
+      if (!response.ok) throw new Error('Failed to fetch all attendance');
+      const data = await response.json();
+      return data.attendance || [];
+    } catch (error) {
+      console.error('Error fetching all attendance:', error);
+      return [];
     }
   }
 }

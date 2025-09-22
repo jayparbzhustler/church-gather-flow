@@ -27,23 +27,8 @@ const Index = () => {
   }, []);
 
   const initializeDatabase = async () => {
-    try {
-      await churchDB.init();
-      // Check if default data has been initialized using local storage flag
-      const isInitialized = localStorage.getItem('churchDBInitialized');
-      if (!isInitialized) {
-        await churchDB.initializeDefaultData();
-        localStorage.setItem('churchDBInitialized', 'true');
-      }
-      setDbInitialized(true);
-    } catch (error) {
-      console.error('Failed to initialize database:', error);
-      toast({
-        title: "Database Error",
-        description: "Failed to initialize local database. Please refresh the page.",
-        variant: "destructive",
-      });
-    }
+    // No need to initialize local database anymore - using Google Sheets directly via Netlify functions
+    setDbInitialized(true);
   };
 
   const handleGenderSelect = (gender: 'Male' | 'Female') => {
@@ -112,8 +97,8 @@ const Index = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto mb-4"></div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">Initializing Church Kiosk</h2>
-          <p className="text-lg text-muted-foreground">Setting up offline database...</p>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Loading Church Kiosk</h2>
+          <p className="text-lg text-muted-foreground">Preparing attendance system...</p>
         </div>
       </div>
     );

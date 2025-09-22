@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Search, ArrowLeft, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { churchDB, Group, Member } from "@/lib/db";
+import { Group, Member } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 
 interface GroupSelectionProps {
@@ -25,10 +25,16 @@ export default function GroupSelection({ selectedGender, onGroupSelect, onBack }
 
   const loadData = async () => {
     try {
-      const [allGroups, allMembers] = await Promise.all([
-        churchDB.getGroups(),
-        churchDB.getAllMembers()
+      const [groupsResponse, membersResponse] = await Promise.all([
+        fetch('/.netlify/functions/get-groups'),
+        fetch('/.netlify/functions/get-members')
       ]);
+
+      if (!groupsResponse.ok) throw new Error('Failed to fetch groups');
+      if (!membersResponse.ok) throw new Error('Failed to fetch members');
+
+      const allGroups: Group[] = await groupsResponse.json();
+      const allMembers: Member[] = await membersResponse.json();
       
       // Sort groups by name
       const sortedGroups = allGroups.sort((a, b) => a.name.localeCompare(b.name));
@@ -40,6 +46,7 @@ export default function GroupSelection({ selectedGender, onGroupSelect, onBack }
         description: "Failed to load data",
         variant: "destructive",
       });
+      console.error('Load data error:', error);
     } finally {
       setLoading(false);
     }

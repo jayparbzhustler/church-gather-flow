@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { churchDB, AttendanceRecord, Group, Subgroup, Member } from "@/lib/db";
+import { AttendanceRecord, Group, Subgroup, Member } from "@/lib/db";
 import { exportAttendanceToCSV, generateAttendanceReport } from "@/lib/csv-export";
 import { useToast } from "@/hooks/use-toast";
 
@@ -34,11 +34,19 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
 
   const loadAllData = async () => {
     try {
-      const [today, all, groupsData] = await Promise.all([
-        churchDB.getTodayAttendance(),
-        churchDB.getAllAttendance(),
-        churchDB.getGroups()
+      const [todayResponse, allResponse, groupsResponse] = await Promise.all([
+        fetch('/.netlify/functions/get-today-attendance'),
+        fetch('/.netlify/functions/get-all-attendance'),
+        fetch('/.netlify/functions/get-groups')
       ]);
+
+      if (!todayResponse.ok) throw new Error('Failed to fetch today attendance');
+      if (!allResponse.ok) throw new Error('Failed to fetch all attendance');
+      if (!groupsResponse.ok) throw new Error('Failed to fetch groups');
+
+      const today: AttendanceRecord[] = await todayResponse.json();
+      const all: AttendanceRecord[] = await allResponse.json();
+      const groupsData: Group[] = await groupsResponse.json();
       setTodayAttendance(today);
       setAllAttendance(all);
       // Sort groups by name
@@ -47,13 +55,17 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
       
       // Load subgroups and members if needed
       if (sortedGroups.length > 0) {
-        const subgroupsData = await churchDB.getSubgroupsByGroup(sortedGroups[0].id);
+        const subgroupsResponse = await fetch(`/.netlify/functions/get-subgroups?groupId=${sortedGroups[0].id}`);
+        if (!subgroupsResponse.ok) throw new Error('Failed to fetch subgroups');
+        const subgroupsData: Subgroup[] = await subgroupsResponse.json();
         // Sort subgroups by name
         const sortedSubgroups = subgroupsData.sort((a, b) => a.name.localeCompare(b.name));
         setSubgroups(sortedSubgroups);
         
         if (sortedSubgroups.length > 0) {
-          const membersData = await churchDB.getMembersBySubgroup(sortedSubgroups[0].id);
+          const membersResponse = await fetch(`/.netlify/functions/get-members?subgroupId=${sortedSubgroups[0].id}`);
+          if (!membersResponse.ok) throw new Error('Failed to fetch members');
+          const membersData: Member[] = await membersResponse.json();
           // Sort members by name
           const sortedMembers = membersData.sort((a, b) => a.name.localeCompare(b.name));
           setMembers(sortedMembers);
@@ -65,6 +77,7 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
         description: "Failed to load data",
         variant: "destructive",
       });
+      console.error('Load all data error:', error);
     } finally {
       setLoading(false);
     }

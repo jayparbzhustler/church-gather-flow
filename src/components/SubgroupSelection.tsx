@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Search, ArrowLeft, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { churchDB, Group, Subgroup, Member } from "@/lib/db";
+import { Group, Subgroup, Member } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 
 interface SubgroupSelectionProps {
@@ -31,10 +31,16 @@ export default function SubgroupSelection({
 
   const loadData = async () => {
     try {
-      const [groupSubgroups, allMembers] = await Promise.all([
-        churchDB.getSubgroupsByGroup(selectedGroup.id),
-        churchDB.getAllMembers()
+      const [subgroupsResponse, membersResponse] = await Promise.all([
+        fetch(`/.netlify/functions/get-subgroups?groupId=${selectedGroup.id}`),
+        fetch('/.netlify/functions/get-members')
       ]);
+
+      if (!subgroupsResponse.ok) throw new Error('Failed to fetch subgroups');
+      if (!membersResponse.ok) throw new Error('Failed to fetch members');
+
+      const groupSubgroups: Subgroup[] = await subgroupsResponse.json();
+      const allMembers: Member[] = await membersResponse.json();
       
       // Sort subgroups by name
       const sortedSubgroups = groupSubgroups.sort((a, b) => a.name.localeCompare(b.name));
@@ -46,6 +52,7 @@ export default function SubgroupSelection({
         description: "Failed to load data",
         variant: "destructive",
       });
+      console.error('Load data error:', error);
     } finally {
       setLoading(false);
     }

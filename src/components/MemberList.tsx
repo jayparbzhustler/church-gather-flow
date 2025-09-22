@@ -34,7 +34,9 @@ export default function MemberList({
 
   const loadMembers = async () => {
     try {
-      const subgroupMembers = await churchDB.getMembersBySubgroup(selectedSubgroup.id);
+      const response = await fetch(`/.netlify/functions/get-members?subgroupId=${selectedSubgroup.id}`);
+      if (!response.ok) throw new Error('Failed to fetch members');
+      const subgroupMembers: Member[] = await response.json();
       // Filter by selected gender
       const filteredMembers = subgroupMembers.filter(member => member.gender === selectedGender);
       setMembers(filteredMembers);
@@ -44,6 +46,7 @@ export default function MemberList({
         description: "Failed to load members",
         variant: "destructive",
       });
+      console.error('Load members error:', error);
     } finally {
       setLoading(false);
     }
@@ -57,14 +60,35 @@ export default function MemberList({
   const handleCheckIn = async (member: Member) => {
     setCheckingIn(member.id);
     try {
-      const attendance = await churchDB.markAttendance(member.id);
+      const record = {
+        memberId: member.id,
+        memberName: member.name,
+        gender: member.gender,
+        groupName: selectedGroup.name,
+        subgroupName: selectedSubgroup.name,
+        serviceDate: new Date().toISOString().split('T')[0],
+        status: 'Present'
+      };
+      const response = await fetch('/.netlify/functions/mark-attendance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(record),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      const attendance = data.attendance;
       onCheckInComplete(member, attendance);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to check in member",
+        description: "Failed to check in member. Check console for details.",
         variant: "destructive",
       });
+      console.error('Check-in error:', error);
     } finally {
       setCheckingIn(null);
     }
