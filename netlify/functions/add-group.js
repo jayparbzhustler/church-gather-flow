@@ -8,7 +8,10 @@ export default async (event, context) => {
     await doc.useServiceAccountAuth(JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON));
 
     await doc.loadInfo();
-    const sheet = doc.sheetsByTitle['Groups'];
+    let sheet = doc.sheetsByTitle['Groups'];
+    if (!sheet) {
+      sheet = await doc.addSheet({ title: 'Groups', headerValues: ['id', 'name', 'createdAt'] });
+    }
 
     const { name } = JSON.parse(event.body);
 
