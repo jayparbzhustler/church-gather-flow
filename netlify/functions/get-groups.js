@@ -13,7 +13,10 @@ module.exports.handler = async (event, context) => {
     });
 
     await doc.loadInfo();
-    const sheet = doc.sheetsByTitle['Groups'];
+    let sheet = doc.sheetsByTitle['Groups'];
+    if (!sheet) {
+      sheet = await doc.addSheet({ title: 'Groups', headerValues: ['id', 'name', 'createdAt'] });
+    }
 
     const rows = await sheet.getRows();
     const groups = rows.map(row => ({
