@@ -1,6 +1,7 @@
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 
 export default async (event, context) => {
+  console.log('get-groups invoked');
   try {
     const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
 
@@ -16,18 +17,21 @@ export default async (event, context) => {
       createdAt: new Date(row.get('createdAt')),
     }));
 
-    return new Response(JSON.stringify({ groups }), {
-      status: 200,
+    return {
+      statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
       },
-    });
+      body: JSON.stringify({ groups }),
+    };
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    console.error('Error in get-groups:', error);
+    return {
+      statusCode: 500,
       headers: {
         'Content-Type': 'application/json',
       },
-    });
+      body: JSON.stringify({ error: error.message }),
+    };
   }
 };
