@@ -16,7 +16,7 @@ module.exports.handler = async (event, context) => {
 
     await doc.useServiceAccountAuth({
       client_email: client_email,
-      private_key: private_key,
+      private_key: private_key.replace(/\\n/g, '\n'),
     });
 
     await doc.loadInfo();
