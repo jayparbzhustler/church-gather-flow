@@ -1,6 +1,6 @@
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 
-export default async (event, context) => {
+module.exports = async (event, context) => {
   console.log('get-groups invoked');
   console.log('google-spreadsheet version:', require('google-spreadsheet/package.json').version);
   try {
