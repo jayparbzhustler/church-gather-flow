@@ -6,7 +6,11 @@ module.exports.handler = async (event, context) => {
   try {
     const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
 
-    await doc.useServiceAccountCredentials(JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON));
+    const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+    await doc.useServiceAccountAuth({
+      client_email: creds.client_email,
+      private_key: creds.private_key.replace(/\\n/g, '\n'),
+    });
 
     await doc.loadInfo();
     const sheet = doc.sheetsByTitle['Groups'];
