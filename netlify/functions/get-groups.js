@@ -1,7 +1,8 @@
-import { GoogleSpreadsheet } from 'google-spreadsheet';
+const { GoogleSpreadsheet } = require('google-spreadsheet');
 
 export default async (event, context) => {
   console.log('get-groups invoked');
+  console.log('google-spreadsheet version:', require('google-spreadsheet/package.json').version);
   try {
     const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
 
