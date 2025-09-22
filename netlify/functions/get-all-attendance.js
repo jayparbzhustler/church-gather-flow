@@ -4,7 +4,18 @@ export default async (event, context) => {
   try {
     const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
 
-    await doc.useServiceAccountAuth(JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON));
+    // Use separate environment variables for Google Service Account
+    const client_email = process.env.GOOGLE_CLIENT_EMAIL;
+    const private_key = process.env.GOOGLE_PRIVATE_KEY;
+    
+    if (!client_email || !private_key) {
+      throw new Error('Google Service Account credentials not found in environment variables');
+    }
+
+    await doc.useServiceAccountAuth({
+      client_email: client_email,
+      private_key: private_key,
+    });
 
     await doc.loadInfo();
     const sheet = doc.sheetsByTitle['Attendance'];
