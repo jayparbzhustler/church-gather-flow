@@ -4,10 +4,7 @@ export default async (event, context) => {
   try {
     const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
 
-    await doc.useServiceAccountAuth({
-      client_email: process.env.GOOGLE_CLIENT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-    });
+    await doc.useServiceAccountAuth(JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON));
 
     await doc.loadInfo();
     const sheet = doc.sheetsByTitle['Members'];
