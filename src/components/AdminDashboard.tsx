@@ -44,9 +44,12 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
       if (!allResponse.ok) throw new Error('Failed to fetch all attendance');
       if (!groupsResponse.ok) throw new Error('Failed to fetch groups');
 
-      const today: AttendanceRecord[] = await todayResponse.json();
-      const all: AttendanceRecord[] = await allResponse.json();
-      const groupsData: Group[] = await groupsResponse.json();
+      const todayResponseData = await todayResponse.json();
+      const today: AttendanceRecord[] = todayResponseData.attendance || [];
+      const allResponseData = await allResponse.json();
+      const all: AttendanceRecord[] = allResponseData.attendance || [];
+      const groupsResponseData = await groupsResponse.json();
+      const groupsData: Group[] = groupsResponseData.groups || [];
       setTodayAttendance(today);
       setAllAttendance(all);
       // Sort groups by name
@@ -57,7 +60,8 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
       if (sortedGroups.length > 0) {
         const subgroupsResponse = await fetch(`/.netlify/functions/get-subgroups?groupId=${sortedGroups[0].id}`);
         if (!subgroupsResponse.ok) throw new Error('Failed to fetch subgroups');
-        const subgroupsData: Subgroup[] = await subgroupsResponse.json();
+        const subgroupsResponseData = await subgroupsResponse.json();
+        const subgroupsData: Subgroup[] = subgroupsResponseData.subgroups || [];
         // Sort subgroups by name
         const sortedSubgroups = subgroupsData.sort((a, b) => a.name.localeCompare(b.name));
         setSubgroups(sortedSubgroups);
@@ -65,7 +69,8 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
         if (sortedSubgroups.length > 0) {
           const membersResponse = await fetch(`/.netlify/functions/get-members?subgroupId=${sortedSubgroups[0].id}`);
           if (!membersResponse.ok) throw new Error('Failed to fetch members');
-          const membersData: Member[] = await membersResponse.json();
+          const membersResponseData = await membersResponse.json();
+          const membersData: Member[] = membersResponseData.members || [];
           // Sort members by name
           const sortedMembers = membersData.sort((a, b) => a.name.localeCompare(b.name));
           setMembers(sortedMembers);

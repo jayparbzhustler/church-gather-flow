@@ -38,17 +38,18 @@ export default async (event, context) => {
       createdAt: new Date(newRow.get('createdAt')),
     };
 
-    return {
-      statusCode: 200,
+    return new Response(JSON.stringify({ group: newGroup }), {
+      status: 200,
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ group: newGroup }),
-    };
+    });
   } catch (error) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   }
 };
